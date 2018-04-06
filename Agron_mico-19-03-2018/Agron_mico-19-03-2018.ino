@@ -2,10 +2,16 @@
 #include <avr/interrupt.h>
 #include <Metro.h>
 #include <TimerOne.h>
+#include <TimerTwo.h>
 #include <ModbusMaster.h>
-
+#include <Wire.h>
+#include <RTClib.h>
 #define REG_INV_RES 0x01
 #define REG_RUN_FREQ 0x0D
+
+RTC_DS1307 RTC;
+
+bool hora_punta = false;
 
 ModbusMaster var_frec;
 int address_var_frec = 0x01;
@@ -34,14 +40,11 @@ int count = 0;
 
 void setup()  
 {
-  pinMode(6, OUTPUT);
-  delay(1);
-  digitalWrite(6, HIGH);
-  Serial.begin(115200); // teensy
-  while(!Serial);
+  Wire.begin();             
+  RTC.begin();
   Serial1.begin(115200); // xBee
   while(!Serial1);
-  Serial2.begin(115200); // 3g
+  Serial2.begin(115200); //3g
   while(!Serial2);
   pinMode(pin_bomba,OUTPUT);
   Serial3.begin(9600, SERIAL_8E1); // ModBus  
@@ -56,11 +59,24 @@ void setup()
   Timer1.initialize(1000*1000*60); // 60 segundos
   Timer1.attachInterrupt(caudalimetro);
   sei();
-  Serial.println("Hola");
+  Serial1.println("Hola");
+  if (! RTC.isrunning()) {                       
+    Serial1.println("RTC is NOT running!");
+  }
 }
 
 void loop()
 {
+  DateTime now = RTC.now();
+  uint8_t hora = now.hour();
+  uint8_t minuto = now.minute();
+  if( (hora >= 17) && (minuto > 29) ){
+    hora_punta = true;  
+  }
+  if( (hora >= 23) && (minuto > 30) ){
+    hora_punta = false;  
+  }
+  
   static int state = 1; 
   switch(state){
     case 1:
@@ -96,7 +112,7 @@ void loop()
 */      String caudal__ = "";
         caudal__ += caudal;
         int largo_del_json = 13 + caudal__.length();
-        Serial.println(largo_del_json);
+        Serial1.println(largo_del_json);
         String tmp = "POST /api/v1.6/variables/5a958eab642ab64d1917e943/values/?token=BBFF-IH5I4OcjNkdFY6IAcKjnBhbdEThV8j HTTP/1.1\r\n";
         tmp += "Host: things.ubidots.com\r\n";
         tmp += "Content-Type: application/json\r\n";
@@ -115,14 +131,14 @@ void loop()
         tmp += "}\r\n";
         Serial2.flush();
         Serial2.print(tmp);
-        Serial.print(tmp);
+        Serial1.print(tmp);
         //delay(1000);
         char data_in_ = 0;
         time_request.reset();
         while(time_request.check() == 0){
           if(Serial2.available()>0){
             data_in_ = Serial2.read();
-            Serial.print(data_in_);
+            Serial1.print(data_in_);
           }
         }
         //Serial2.flush();
@@ -132,7 +148,7 @@ void loop()
         tmp += "\r\n";
         Serial2.flush();
         Serial2.print(tmp);
-        Serial.print(tmp);
+        Serial1.print(tmp);
         //delay(1000);
         data_in_ = 0;
         time_request.reset();
@@ -140,7 +156,7 @@ void loop()
         while(time_request.check() == 0){
           if(Serial2.available()>0){
             data_in_ = Serial2.read();
-            Serial.print(data_in_);
+            Serial1.print(data_in_);
             bufferAnswer[count__] = data_in_;
             count__++;
           }
@@ -148,17 +164,19 @@ void loop()
         bufferAnswer[count__] = '\0';
         if(strstr(bufferAnswer, "\r\n1.0\r\n")){
           if(bomba_on == false){
-            bomba_on = true;
-            var_frec.writeSingleRegister(0x08, 0x02); // dar partida
+            if(hora_punta == false){ // no hay hora punta
+              bomba_on = true;
+              var_frec.writeSingleRegister(0x08, 0x02); // dar partida
+            }
           }
-          Serial.println("Bomba ON");
+          Serial1.println("Bomba ON");
         }
         else{
           if(bomba_on == true){
             bomba_on == false;
             var_frec.writeSingleRegister(0x08, 0x00); // parar 
           }
-          Serial.println("Bomba OFF"); 
+          Serial1.println("Bomba OFF"); 
         }
         tmp = "GET /api/v1.6/devices/sala-de-riego/variador-de-frecuencia/lv?token=BBFF-IH5I4OcjNkdFY6IAcKjnBhbdEThV8j";
         tmp += " HTTP/1.1\r\n";
@@ -166,7 +184,7 @@ void loop()
         tmp += "\r\n";
         Serial2.flush();
         Serial2.print(tmp);
-        Serial.print(tmp);
+        Serial1.print(tmp);
         //delay(1000);
         data_in_ = 0;
         time_request.reset();
@@ -174,7 +192,7 @@ void loop()
         while(time_request.check() == 0){
           if(Serial2.available()>0){
             data_in_ = Serial2.read();
-            Serial.print(data_in_);
+            Serial1.print(data_in_);
             bufferAnswer[count__] = data_in_;
             count__++;
           }
@@ -186,10 +204,10 @@ void loop()
         token = strtok(bufferAnswer, delim);
         while(token != NULL){
           largo = strlen(token);
-          Serial.println(token);
+          Serial1.println(token);
           if(largo < 5){
             token = strtok(NULL, delim);
-            Serial.println(token);
+            Serial1.println(token);
             break;
           }
           token = strtok(NULL, delim);
@@ -198,10 +216,10 @@ void loop()
         if( (freq >=30) && (freq <= 55) ){
           int freq__ = freq*100;
           if( freq_prev != freq__){
-            Serial.print("registro : ");
-            Serial.print(REG_RUN_FREQ);
-            Serial.print("\tfreq : ");
-            Serial.println(freq__);
+            Serial1.print("registro : ");
+            Serial1.print(REG_RUN_FREQ);
+            Serial1.print("\tfreq : ");
+            Serial1.println(freq__);
             var_frec.writeSingleRegister(REG_RUN_FREQ, freq__);
             freq_prev = freq__;
           }
@@ -224,11 +242,11 @@ void loop()
     }
   }
   
-  Serial.print("state:");
-  Serial.println(state);
-  Serial.print("Valor del sensor: ");
-  Serial.println(caudal,4);
-  Serial.println(waterFlow);
+  Serial1.print("state:");
+  Serial1.println(state);
+  Serial1.print("Valor del sensor: ");
+  Serial1.println(caudal,4);
+  Serial1.println(waterFlow);
 }
 
 // ----------------------------------
@@ -238,12 +256,12 @@ boolean ModemON()
   delay(1000);
   if(SendCommand("AT", "OK", 10000, HIGH) == '1')
   {
-    Serial.println("Modem ON");
+    Serial1.println("Modem ON");
     onState = HIGH;
   }
   else
   {
-    Serial.println("Modem OFF");
+    Serial1.println("Modem OFF");
     onState = LOW;
   }  
   return onState;  
@@ -258,8 +276,8 @@ int ModemConnect()
   switch (var) 
   {
     case 1:
-      Serial.println();
-      Serial.print("Echo off ");
+      Serial1.println();
+      Serial1.print("Echo off ");
       if(SendCommand("ATE0","OK", 5000, HIGH) == '1')
       {
         var = 2;
@@ -268,8 +286,8 @@ int ModemConnect()
     break;
       
     case 2:
-      Serial.println();
-      Serial.print("AT command ");
+      Serial1.println();
+      Serial1.print("AT command ");
       if(SendCommand("AT","OK", 5000, HIGH) == '1')
       {
         var = 3;
@@ -278,8 +296,8 @@ int ModemConnect()
     break;
       
     case 3:
-      Serial.println();
-      Serial.print("Set APN ");
+      Serial1.println();
+      Serial1.print("Set APN ");
       if(SendCommand("AT+CGDCONT=1,\"IP\",\"bam.entelpcs.cl\"","OK", 8000, HIGH) == '1')  // AT+CGDCONT=1,"IP","web.tmovil.cl"
       {
         var = 4;
@@ -288,8 +306,8 @@ int ModemConnect()
     break;
       
     case 4:
-      Serial.println();
-      Serial.print("Network connecting ");
+      Serial1.println();
+      Serial1.print("Network connecting ");
       if(SendCommand("AT#SGACT=1,1","#SGACT:", 8000, HIGH) == '1')
       {
         var = 5;
@@ -298,8 +316,8 @@ int ModemConnect()
     break;
       
     case 5:
-      Serial.println();
-      Serial.print("No flow control ");
+      Serial1.println();
+      Serial1.print("No flow control ");
       if(SendCommand("AT&K0","OK", 5000, HIGH) == '1')
       {
         var = 6;
@@ -308,8 +326,8 @@ int ModemConnect()
     break;
       
     case 6:
-      Serial.println();
-      Serial.print("Coonnecting Server ");
+      Serial1.println();
+      Serial1.print("Coonnecting Server ");
  //     if(SendCommand("AT#SD=1,0,80,translate.ubidots.com,0,0,0","CONNECT", 8000, HIGH) == '1') // Conectar al server TCP indicando puerto e IP
       if(SendCommand("AT#SD=1,0,80,industrial.ubidots.com,0,0,0","CONNECT", 8000, HIGH) == '1')
       {
@@ -359,7 +377,7 @@ char SendCommand(char *command, char *ack, unsigned long time, boolean resp) // 
   
   Serial2.flush();
   Serial2.println(command); 
-  Serial.println(command);  // solo debug
+  Serial1.println(command);  // solo debug
   
   if(resp == HIGH)
   {    
@@ -368,7 +386,7 @@ char SendCommand(char *command, char *ack, unsigned long time, boolean resp) // 
         if(Serial2.available() > 0)
           {
             char dataIn = Serial2.read();
-            Serial.print(dataIn);
+            Serial1.print(dataIn);
             if(pTemptBuff < (bufferAnswer + sizeof(bufferAnswer))-1)
             {
               *(pTemptBuff++) = dataIn;
@@ -391,7 +409,7 @@ char SendCommand(char *command, char *ack, unsigned long time, boolean resp) // 
   if(timeOut < millis())
     {
       rCode = '2';
-      Serial.println("  Time out");
+      Serial1.println("  Time out");
     } 
   //Serial.println(rCode,DEC);   // solo debug
   return rCode;
@@ -407,7 +425,7 @@ void pulse()   //measure the quantity of square wave
 
 void caudalimetro(){
     cli();
-    caudal = (waterFlow*10.0/60.0);
+    caudal = (waterFlow*0.002*(0.125) + caudal*(1-0.125));
     waterFlow = 0;
     sei();
 }

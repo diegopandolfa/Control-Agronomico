@@ -7,6 +7,7 @@
 #define PRESET_MULT_REGISTER 0x10
 #define REG_INV_RES 0x01
 #define REG_RUN_FREQ 0x0D
+#define PIN_DIR_RS485 6
 
 Metro time_of_print_info = Metro(2000);
 Metro time_of_reset_caudal = Metro(1000000);
@@ -26,6 +27,8 @@ volatile double delta_t = 0;
 
 void setup() {
   // put your setup code here, to run once:
+  pinMode(PIN_DIR_RS485,OUTPUT);
+  digitalWrite(PIN_DIR_RS485, HIGH);
   Serial.begin(9600); // usb
   while(!Serial);
   Serial1.begin(115200); // xBee
@@ -61,21 +64,27 @@ void loop() {
     if( tmp == "0ON" ){
       digitalWrite(pin_bomba, HIGH);
       Serial.println("BOMBA ON");
+      Serial.print("registro : ");
+      Serial.print(0x08);
+      Serial.print("\tflag : ");
+      Serial.println(0x02);
+      var_frec.writeSingleRegister(0x08, 0x02); // dar partida
+      delay(1000);
     }
     if( tmp == "0OFF" ){
       digitalWrite(pin_bomba, LOW);
       Serial.println("BOMBA OFF");
-    }
-    freq = atoi(tmp.c_str());
-    if( (freq >=30) && (freq <= 55) ){
-      freq *= 100;
-      //var_frec.clearTransmitBuffer();
       Serial.print("registro : ");
       Serial.print(0x08);
       Serial.print("\tflag : ");
       Serial.println(0x02);
       var_frec.writeSingleRegister(0x08, 0x00); // dar partida
       delay(1000);
+    }
+    freq = atoi(tmp.c_str());
+    if( (freq >=30) && (freq <= 55) ){
+      freq *= 100;
+      //var_frec.clearTransmitBuffer();
       Serial.print("registro : ");
       Serial.print(REG_RUN_FREQ);
       Serial.print("\tfreq : ");

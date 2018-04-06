@@ -12,6 +12,17 @@ int address_var_frec = 0x01;
 double freq = 0;
 int freq_prev = 0;
 bool bomba_on = false;
+bool enable_var_frec = false;
+int PIN_GPIO_1 = 16;
+int PIN_GPIO_2 = 15;
+int PIN_GPIO_3 = 14;
+int PIN_GPIO_4 = 13;
+int GPIO_1 = 0; // auto_internet
+int GPIO_2 = 0; // nivel_agua_potable
+int GPIO_3 = 0; // relé de nivel pozo
+int GPIO_4 = 0; // manual
+bool auto_internet = false;
+bool casa_patronal = false;
 
 Metro time_request = Metro(8000);
 Metro time_of_reset_caudal = Metro(2000);
@@ -31,10 +42,16 @@ volatile long time_current = 0;
 volatile long delta = 0;
 volatile double delta_t = 0;
 int count = 0;
+int count_pulse = 0;
+volatile int sensor_value = 0;
 
 void setup()  
 {
-  pinMode(6, OUTPUT);
+  pinMode(PIN_GPIO_1, INPUT); // K1 selector externo internet
+  pinMode(PIN_GPIO_2, INPUT); // K2 contancto bomba agua potable
+  pinMode(PIN_GPIO_3, INPUT); // Relé Nivel
+  pinMode(PIN_GPIO_4, INPUT); // Manual
+  pinMode(6, OUTPUT); // enable del RS485
   delay(1);
   digitalWrite(6, HIGH);
   Serial.begin(115200); // teensy
@@ -52,15 +69,51 @@ void setup()
   waterFlow = 0;
   cli();
   pinMode(pin_caudalimetro, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(pin_caudalimetro), pulse, FALLING);  //DIGITAL Pin 2: Interrupt 0
-  Timer1.initialize(1000*1000*60); // 60 segundos
-  Timer1.attachInterrupt(caudalimetro);
+  //attachInterrupt(digitalPinToInterrupt(pin_caudalimetro), pulse, FALLING);  //DIGITAL Pin 2: Interrupt 0
+  Timer1.initialize(500*1000); // 500 ms segundo
+  Timer1.attachInterrupt(pulse);
   sei();
   Serial.println("Hola");
 }
 
 void loop()
 {
+  String entradas = "Entradas: \t";
+  entradas += GPIO_1;
+  entradas += "\t";
+  entradas += GPIO_2;
+  entradas += "\t";
+  entradas += GPIO_3;
+  entradas += "\t";
+  entradas += GPIO_4;
+  Serial.println(entradas);
+  if(GPIO_3 == LOW){ // si hay agua
+    enable_var_frec = true;
+    if(GPIO_4 == LOW){ // si se enciende manual
+      bomba_on = true;
+      auto_internet = false;
+    }
+    else if(GPIO_1 == LOW){ // si se enciende auto_inernet
+      auto_internet = true;
+      if(GPIO_2 == LOW){ // si pide agua la casa patronal
+        bomba_on = true;
+        casa_patronal = true;
+      }
+      else {
+        bomba_on = false;
+        casa_patronal = false;
+      }
+    }
+    else{ // OFF
+      bomba_on = false;
+      auto_internet = false;
+      casa_patronal = false;
+    }
+  }
+  else { // no hay agua en el pozo
+    bomba_on = false;
+    enable_var_frec = false;
+  }
   static int state = 1; 
   switch(state){
     case 1:
@@ -126,6 +179,7 @@ void loop()
           }
         }
         //Serial2.flush();
+        if( (auto_internet == true) && (enable_var_frec == true) ){
         tmp = "GET /api/v1.6/devices/sala-de-riego/bomba/lv?token=BBFF-IH5I4OcjNkdFY6IAcKjnBhbdEThV8j";
         tmp += " HTTP/1.1\r\n";
         tmp += "HOST: things.ubidots.com\r\n";
@@ -149,16 +203,25 @@ void loop()
         if(strstr(bufferAnswer, "\r\n1.0\r\n")){
           if(bomba_on == false){
             bomba_on = true;
-            var_frec.writeSingleRegister(0x08, 0x02); // dar partida
+            //var_frec.writeSingleRegister(0x08, 0x02); // dar partida
           }
           Serial.println("Bomba ON");
         }
         else{
           if(bomba_on == true){
-            bomba_on == false;
-            var_frec.writeSingleRegister(0x08, 0x00); // parar 
+            if(casa_patronal == false){
+              bomba_on == false;
+              Serial.println("Bomba OFF");
+            }
+            else{
+              bomba_on = true;
+              Serial.println("Bomba ON");  
+            }
+            //var_frec.writeSingleRegister(0x08, 0x00); // parar 
           }
-          Serial.println("Bomba OFF"); 
+          else{
+            bomba_on = false;  
+          } 
         }
         tmp = "GET /api/v1.6/devices/sala-de-riego/variador-de-frecuencia/lv?token=BBFF-IH5I4OcjNkdFY6IAcKjnBhbdEThV8j";
         tmp += " HTTP/1.1\r\n";
@@ -206,6 +269,13 @@ void loop()
             freq_prev = freq__;
           }
         }
+        }
+        else{
+          if(bomba_on == true){
+            bomba_on = false;
+            var_frec.writeSingleRegister(0x08, 0x00); // parar 
+          }  
+        }
         delay(1);
 //      }
       state = 3;
@@ -223,7 +293,14 @@ void loop()
       break;
     }
   }
-  
+  if(bomba_on == true){
+    var_frec.writeSingleRegister(0x08, 0x02); // dar partida
+    Serial.println("encendiendo bomba");
+  }
+  else{
+    Serial.println("parando bomba");
+    var_frec.writeSingleRegister(0x08, 0x00); // parar
+  }
   Serial.print("state:");
   Serial.println(state);
   Serial.print("Valor del sensor: ");
@@ -400,8 +477,20 @@ char SendCommand(char *command, char *ack, unsigned long time, boolean resp) // 
 void pulse()   //measure the quantity of square wave
 {
   cli();
+  count_pulse++;
   time_of_reset_caudal.reset();
-  waterFlow += 1;
+  sensor_value = ( analogRead(pin_caudalimetro)*0.3 + sensor_value*(1-0.3) );
+  if(sensor_value <= 100){
+    waterFlow += 1;
+  }
+  if(count_pulse >= 60){
+    caudalimetro();
+    count_pulse = 0;
+  }
+  GPIO_1 = digitalRead(PIN_GPIO_1);
+  GPIO_2 = digitalRead(PIN_GPIO_2);
+  GPIO_3 = digitalRead(PIN_GPIO_3);
+  GPIO_4 = digitalRead(PIN_GPIO_4);
   sei();
 }
 
