@@ -14,8 +14,6 @@
 #include <stdlib.h>
 #include <vector>
 #include "input.h"
-#include "/home/diego/Documents/arduino-1.8.2/hardware/teensy/avr/libraries/SD/SD.h"
-
 using namespace std;
 /**
  * @brief :
@@ -90,52 +88,44 @@ public:
 
 private:
 	/**
-	 * @brief : Identificador de la salida.
+	 * @brief : 
 	 */
 	int id;
 	/**
-	 * @brief : Identificador del programa en ejecución
+	 * @brief : 
 	 */
 	int program_id;
 	/**
-	 * @brief : Modo de funcionamiento.
-	 */
-	int mode;
-	/**
-	 * @brief : Pin del microcontrolador.
+	 * @brief : 
 	 */
 	int pinOut;
 	/**
-	 * @brief : Estado de la Salida.
+	 * @brief : 
 	 */
 	int state;
 	/**
-	 * @brief : Siguiente estado de la salida calculado en funcion de las entradas.
+	 * @brief : 
 	 */
 	int next_state;
 	/**
-	 * @brief : Vector de entradas que condicionan el estado de la salida.
+	 * @brief : 
 	 */
 	vector<Input> inputs;
 	/**
-	 * @brief : Tiempo que permanece activada la salida.
+	 * @brief : 
 	 */
 	int time_on[];
 	/**
-	 * @brief : Minuto en que es activada la salida.
+	 * @brief : 
 	 */
 	int minute[];
 	/**
-	 * @brief : Hora en que es activada la salida.
+	 * @brief : 
 	 */
 	int hour[];
 	/**
-	 * @brief : Días en que es activada la salida.
+	 * @brief : 
 	 */
 	int days[];
-	/**
-	 * @brief : Archivo que contiene los parametros guardados en la SD Card.
-	 */
-	File output_param;
 }
 #endif
