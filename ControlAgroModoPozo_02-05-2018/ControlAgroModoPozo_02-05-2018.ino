@@ -338,6 +338,17 @@ void setup() {
   peakTime_config(); // se habilita/dehabilita el horario punta
   print_config_ok_msg();
   delay(TIME_MSG);
+
+  /**
+   * @brief : cuarto, habilitar interrupciones y modulos externos.
+   */
+  digitalWrite(6, HIGH); // habilita el RS485
+  var_frec.begin(address_var_frec, RS485);
+
+  cli();
+  Timer1.initialize(10*1000); // 10 ms
+  Timer1.attachInterrupt(pulse);
+  sei();
 }
 
 void loop() {
@@ -366,4 +377,76 @@ void loop() {
    * @brief : en sexto lugar se debe notificar via 3G hacia la nube el estado de todas las entradas y salidas.
    */
   ubidots_post_request();
+}
+
+
+/**
+ * Falta resolver bien el tema de los sensores de efecto hall
+ */
+void pulse()   //measure the quantity of square wave
+{
+  cli();
+  for(int i=0; i<10; i++){
+    switch(i){
+      case 0 : {
+        switch((int)inputs[0][2]){
+          case 1 : {
+            status_entrada_0 = digitalRead(pin_entrada_logica_0);
+            break;
+          }
+          case 2 : {
+            status_entrada_0 = (int)((double)analogRead(pin_entrada_logica_0))*0.0978;
+            break;
+          }
+          case 3 : {
+            status_entrada_0 = (int)((double)analogRead(pin_entrada_logica_0))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_0 = ( analogRead(pin_entrada_logica_0)*0.1 + status_entrada_0*(1-0.1) );
+            if( (status_entrada_0 <= 100 ) && (flag_flujo == false) ){
+              waterFlow += 1;
+              flag_flujo = true;
+            }
+            else if(status_entrada_0 >=700){
+              waterFlow = waterFlow;
+              flag_flujo = false;  
+            }
+            else{
+              waterFlow = waterFlow;
+              flag_flujo = flag_flujo; 
+            }
+            if(count_pulse >= 18000){
+              caudalimetro();
+              count_pulse = 0;
+            }
+          }
+          default : {
+            
+          }  
+        }
+      }
+      default : {
+        
+      }
+        status_entrada_0 = digitalRead(pin_entrada_logica_0);
+        status_entrada_1 = digitalRead(pin_entrada_logica_1);
+        status_entrada_2 = digitalRead(pin_entrada_logica_2);
+        status_entrada_3 = digitalRead(pin_entrada_logica_3);
+        status_entrada_4 = digitalRead(pin_entrada_logica_4);
+        status_entrada_5 = digitalRead(pin_entrada_analoga_0);
+        status_entrada_6 = digitalRead(pin_entrada_analoga_1);
+        status_entrada_7 = digitalRead(pin_entrada_analoga_2);
+        status_entrada_8 = digitalRead(pin_entrada_analoga_3);
+        status_entrada_9 = digitalRead(pin_entrada_analoga_4);
+    }
+  }
+  sei();
+}
+
+void caudalimetro(){
+    cli();
+    caudal = (waterFlow*10.0/18.0);
+    waterFlow = 0;
+    sei();
 }

@@ -285,7 +285,7 @@ int input_config(){
           }
         }
         default : {
-          ; // entrada fuera de rango, no se hace nada  
+          break; // entrada fuera de rango, no se hace nada  
         }
       }  
     }  
@@ -462,7 +462,7 @@ int output_config(){
           }
         }
         default : { // salida fuera de index, no se hace nada
-          ;
+          break;
         }  
       }
     }
@@ -498,8 +498,8 @@ int rtc_config(){
     }
     if(timer_one_second.check() == 1){
       static int i = 0;
-      lcd.print(".");
       lcd.setCursor(i++, 2);
+      lcd.print(".");
     }
   }
 

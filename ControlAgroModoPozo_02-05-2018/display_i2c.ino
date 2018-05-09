@@ -62,7 +62,9 @@ void print_config_msg(){
   lcd.clear();
   delay(40);
   lcd.setCursor(0,1);
-  lcd.print("SYSTEM CONFIG");
+  lcd.print("SYSTEM");
+  lcd.setCursor(0,2);
+  lcd.print("CONFIGURATION");
 }
 
 void print_input_config_ok_msg(){
