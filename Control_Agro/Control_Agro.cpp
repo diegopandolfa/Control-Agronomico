@@ -102,7 +102,27 @@ Control_Agro::Control_Agro(){
 	flag_error_xBee = 0;
 	flag_error_RTC = 0;
 	flag_error_PowerSupply = 0;
-	var_freq = ModbusMaster();
+	//var_freq = ModbusMaster();
+	input_01 = Input();
+	input_02 = Input();
+	input_03 = Input();
+	input_04 = Input();
+	input_05 = Input();
+	input_06 = Input();
+	input_07 = Input();
+	input_08 = Input();
+	input_09 = Input();
+	input_10 = Input();
+	output_01 = Output();
+	output_02 = Output();
+	output_03 = Output();
+	output_04 = Output();
+	output_05 = Output();
+	output_06 = Output();
+	output_07 = Output();
+	output_08 = Output();
+	//vector_exp_in = std::vector<Input>();
+	//vector_exp_out = std::vector<Output>();
 }
 /**
  * @breif : 
@@ -208,6 +228,24 @@ int Control_Agro::init(void){
 	out_08_value = 0;
 	out_09_value = 0;
 	out_10_value = 0;
+	input_01.init(1, pinInCurrentAnalog_01);
+	input_02.init(2, pinInCurrentAnalog_02);
+	input_03.init(3, pinInVoltageAnalog_01);
+	input_04.init(4, pinInVoltageAnalog_02);
+	input_05.init(5, pinInVoltageAnalog_03);
+	input_06.init(6, pinGPIO_01);
+	input_07.init(7, pinGPIO_02);
+	input_08.init(8, pinGPIO_03);
+	input_09.init(9, pinGPIO_04);
+	input_10.init(10, pinGPIO_05);
+	output_01 = Output(1, pinOut_01);
+	output_02 = Output(2, pinOut_02);
+	output_03 = Output(3, pinOut_03);
+	output_04 = Output(4, pinOut_04);
+	output_05 = Output(5, pinOut_05);
+	output_06 = Output(6, pinOut_06);
+	output_07 = Output(7, pinOut_07);
+	output_08 = Output(8, pinOut_08);
 	flag_error_3G = 0;
 	flag_error_xBee = 0;
 	flag_error_RTC = 0;
@@ -420,8 +458,44 @@ int Control_Agro::enableOutput(void){
 /**
  * @breif : 
  */
-String Control_Agro::getStatusForOutput(int output){
-	return String();
+int Control_Agro::getStatusForOutput(int output, String &status){
+	switch(output){
+		case 1:
+			return output_01.getState(output, status);
+			break;
+		case 2:
+			return output_02.getState(output, status);
+			break;
+		case 3:
+			return output_02.getState(output, status);
+			break;
+		case 4:
+			return output_02.getState(output, status);
+			break;
+		case 5:
+			return output_02.getState(output, status);
+			break;
+		case 6:
+			return output_02.getState(output, status);
+			break;
+		case 7:
+			return output_02.getState(output, status);
+			break;
+		case 8:
+			return output_02.getState(output, status);
+			break;
+		default :
+			return -1;
+			break;
+	}
+/*	std::vector<Output>::iterator it = vector_exp_out.begin();
+	while(it != vector_exp_out.end()){
+		if(it->getId() == output){
+			return it->getState(output, status);
+		}
+		it++;
+	}*/
+	return -1;
 }
 /**
  * @breif : 
@@ -432,6 +506,71 @@ int Control_Agro::setOutputAsTimeLogic(int output){
 /**
  * @breif : 
  */
-int Control_Agro::setOutputAsInputLogic(int inputs){
-	return 0;
+int Control_Agro::setOutputAsInputLogic(int output, int inputs){
+	/*std::vector<Input> v_logic_in_temp;
+	for(int i=2; i<10; i++){
+		if( ((inputs>>i)&(0x01)) == 0x01){
+			switch(i){
+				case 3:
+					v_logic_in_temp.push_back(input_03);
+					break;
+				case 4:
+					v_logic_in_temp.push_back(input_04);
+					break;
+				case 5:
+					v_logic_in_temp.push_back(input_05);
+					break;
+				case 6:
+					v_logic_in_temp.push_back(input_06);
+					break;
+				case 7:
+					v_logic_in_temp.push_back(input_07);
+					break;
+				case 8:
+					v_logic_in_temp.push_back(input_08);
+					break;
+				case 9:
+					v_logic_in_temp.push_back(input_09);
+					break;
+				case 10:
+					v_logic_in_temp.push_back(input_10);
+					break;
+				default :
+					break; // agregar casos en que el iterador es mayor, es decir, la entrada es de un módulo de expansion.
+			}			
+		}
+		else{
+			;
+		}
+	}
+	switch(output){
+		case 1:
+			return output_01.setInputLogic(v_logic_in_temp);
+			break;
+		case 2:
+			return output_02.setInputLogic(v_logic_in_temp);
+			break;
+		case 3:
+			return output_02.setInputLogic(v_logic_in_temp);
+			break;
+		case 4:
+			return output_02.setInputLogic(v_logic_in_temp);
+			break;
+		case 5:
+			return output_02.setInputLogic(v_logic_in_temp);
+			break;
+		case 6:
+			return output_02.setInputLogic(v_logic_in_temp);
+			break;
+		case 7:
+			return output_02.setInputLogic(v_logic_in_temp);
+			break;
+		case 8:
+			return output_02.setInputLogic(v_logic_in_temp);
+			break;
+		default :
+			return -1;
+			break;
+	}*/
+	return -1;
 } // todas las entradas estan en OR

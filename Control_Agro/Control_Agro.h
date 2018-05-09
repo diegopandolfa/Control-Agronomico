@@ -1,12 +1,18 @@
 #ifndef __CONTROL_AGRO__H__
 #define __CONTROL_AGRO__H__
 #include "Arduino.h"
-#include <avr/io.h>
-#include <avr/interrupt.h>
+//#include <avr/io.h>
+//#include <avr/interrupt.h>
 #include <Metro.h>
-#include <TimerOne.h>
+//#include <TimerOne.h>
 #include <ModbusMaster.h>
-#include <RTClib.h>
+//#include <RTClib.h>
+//#include <SD.h>
+//#include <stdlib.h>
+//#include <vector>
+#include "input.h"
+#include "output.h"
+//#include "struct_control_agro.h"
 
 #define INV_DIR	0x01
 #define REG_INV_RES 0x01
@@ -150,7 +156,7 @@ public:
 	/**
 	 * @breif : 
 	 */
-	String getStatusForOutput(int output);
+	int getStatusForOutput(int output, String &status);
 	/**
 	 * @breif : 
 	 */
@@ -158,7 +164,7 @@ public:
 	/**
 	 * @breif : 
 	 */
-	int setOutputAsInputLogic(int inputs); // todas las entradas estan en OR
+	int setOutputAsInputLogic(int output, int inputs); // todas las entradas estan en OR
 
 private:
 	ModbusMaster var_freq;
@@ -554,6 +560,86 @@ private:
 	 * @brief :
 	 */
 	int flag_error_PowerSupply;
+	/**
+	 * @brief :
+	 */
+	Input input_01;
+	/**
+	 * @brief :
+	 */
+	Input input_02;
+	/**
+	 * @brief :
+	 */
+	Input input_03;
+	/**
+	 * @brief :
+	 */
+	Input input_04;
+	/**
+	 * @brief :
+	 */
+	Input input_05;
+	/**
+	 * @brief :
+	 */
+	Input input_06;
+	/**
+	 * @brief :
+	 */
+	Input input_07;
+	/**
+	 * @brief :
+	 */
+	Input input_08;
+	/**
+	 * @brief :
+	 */
+	Input input_09;
+	/**
+	 * @brief :
+	 */
+	Input input_10;
+	/**
+	 * @brief :
+	 */
+	Output output_01;
+	/**
+	 * @brief :
+	 */
+	Output output_02;
+	/**
+	 * @brief :
+	 */
+	Output output_03;
+	/**
+	 * @brief :
+	 */
+	Output output_04;
+	/**
+	 * @brief :
+	 */
+	Output output_05;
+	/**
+	 * @brief :
+	 */
+	Output output_06;
+	/**
+	 * @brief :
+	 */
+	Output output_07;
+	/**
+	 * @brief :
+	 */
+	Output output_08;
+	/**
+	 * @brief :
+	 */
+	//std::vector<Input> vector_exp_in;
+	/**
+	 * @brief :
+	 */
+	//std::vector<Output> vector_exp_out;
 };
 
 #endif
