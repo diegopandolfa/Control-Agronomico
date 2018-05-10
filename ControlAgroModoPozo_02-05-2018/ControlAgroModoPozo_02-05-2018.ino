@@ -67,8 +67,11 @@
 /**
  * @brief : definicion de macros utiles para el programa
  */
-#define REG_INV_RES 0x01  // registro START del F800
-#define REG_RUN_FREQ 0x0D // registro RUN freq del F800
+#define REG_INV_RES   0x01 // registro RESET of F800
+#define REG_RUN_FREQ  0x0D // registro RUN freq of F800
+#define REG_RUN       0x08 // registro RUN
+#define START_INV     0x02 // start inverter
+#define STOP_INV      0x00 // stop inverter
 
 #define DEBUG Serial  // cable USB
 #define XBEE Serial1  // modulo DIGI xBee Pro S2C ZigBee
@@ -118,6 +121,16 @@ int status_salida_8 = 0;
 int status_salida_9 = 0;
 int status_salida_10 = 0;
 
+int remote_output_0 = 0;
+int remote_output_1 = 0;
+int remote_output_2 = 0;
+int remote_output_3 = 0;
+int remote_output_4 = 0;
+int remote_output_5 = 0;
+int remote_output_6 = 0;
+int remote_output_7 = 0;
+int remote_output_8 = 0;
+int remote_output_9 = 0;
 /**
  * @brief : definicion y asignacion por defecto de pines de entrada.
  */
@@ -149,30 +162,30 @@ int pin_entrada_logica_4 = PIN_ENTRADA_LOGICA_4;
 /**
  * @brief : estatus de las entradas
  */
-int status_entrada_0 = 0;// logicas
-int status_entrada_1 = 0;
-int status_entrada_2 = 0;
-int status_entrada_3 = 0;
-int status_entrada_4 = 0;
-int status_entrada_5 = 0;// analogas
-int status_entrada_6 = 0;
-int status_entrada_7 = 0;
-int status_entrada_8 = 0;
-int status_entrada_9 = 0;
+volatile int status_entrada_0 = 0;// logicas
+volatile int status_entrada_1 = 0;
+volatile int status_entrada_2 = 0;
+volatile int status_entrada_3 = 0;
+volatile int status_entrada_4 = 0;
+volatile int status_entrada_5 = 0;// analogas
+volatile int status_entrada_6 = 0;
+volatile int status_entrada_7 = 0;
+volatile int status_entrada_8 = 0;
+volatile int status_entrada_9 = 0;
 
 /**
  * @brief : valor asociado a la entrada multiplicado por el factor de param segun la lógica configurada
  */
-double valor_0 = 0.0;
-double valor_1 = 0.0;
-double valor_2 = 0.0;
-double valor_3 = 0.0;
-double valor_4 = 0.0;
-double valor_5 = 0.0;
-double valor_6 = 0.0;
-double valor_7 = 0.0;
-double valor_8 = 0.0;
-double valor_9 = 0.0;
+volatile double valor_0 = 0.0;
+volatile double valor_1 = 0.0;
+volatile double valor_2 = 0.0;
+volatile double valor_3 = 0.0;
+volatile double valor_4 = 0.0;
+volatile double valor_5 = 0.0;
+volatile double valor_6 = 0.0;
+volatile double valor_7 = 0.0;
+volatile double valor_8 = 0.0;
+volatile double valor_9 = 0.0;
 
 /**
  * declaración de variables asociadas a la comunicacion EIA-RS485 con el variador F-800
@@ -193,7 +206,7 @@ int GPIO_3 = 0; // relé de nivel pozo
 int GPIO_4 = 0; // manual
 bool auto_internet = false;
 bool casa_patronal = false;
-bool flag_flujo = false;
+int flag_pulse = 0x0000;
 
 /**
  * @brief : variables asociadas a la comunicacion 3G
@@ -206,7 +219,7 @@ int counter = 0;
  * @brief : variables auxiliares
  */
 int pin_caudalimetro = 21;
-volatile long waterFlow = 0;
+volatile long quantity_pulse[] = {0,0,0,0,0,0,0,0,0,0};
 volatile double caudal = 0;
 volatile long time_prev = 0;
 volatile long time_current = 0;
@@ -347,7 +360,7 @@ void setup() {
 
   cli();
   Timer1.initialize(10*1000); // 10 ms
-  Timer1.attachInterrupt(pulse);
+  Timer1.attachInterrupt(measure);
   sei();
 }
 
@@ -381,21 +394,21 @@ void loop() {
 
 
 /**
- * Falta resolver bien el tema de los sensores de efecto hall
+ * @brief : realiza mediciones cada 10 ms con una interrupcion por timer.
  */
-void pulse()   //measure the quantity of square wave
-{
+void measure(){   //measure the quantity of square wave
   cli();
-  for(int i=0; i<10; i++){
+  count_pulse++;
+  for(int i=0; i<10; i++){ // for each input
     switch(i){
-      case 0 : {
-        switch((int)inputs[0][2]){
+      case 0 : { // entrada 0
+        switch((int)inputs[0][2]){ // in case mode selected
           case 1 : {
             status_entrada_0 = digitalRead(pin_entrada_logica_0);
             break;
           }
           case 2 : {
-            status_entrada_0 = (int)((double)analogRead(pin_entrada_logica_0))*0.0978;
+            status_entrada_0 = (int)((double)analogRead(pin_entrada_logica_0))*0.0978; // 0 - 100 percent
             break;
           }
           case 3 : {
@@ -404,49 +417,379 @@ void pulse()   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_0 = ( analogRead(pin_entrada_logica_0)*0.1 + status_entrada_0*(1-0.1) );
-            if( (status_entrada_0 <= 100 ) && (flag_flujo == false) ){
-              waterFlow += 1;
-              flag_flujo = true;
+            if( (status_entrada_0 <= 100 ) && (flag_pulse&0x0001 == 0x0000) ){
+              quantity_pulse[0] += 1;
+              flag_pulse |= 0x0001; // true
             }
             else if(status_entrada_0 >=700){
-              waterFlow = waterFlow;
-              flag_flujo = false;  
+              quantity_pulse[0] = quantity_pulse[0];
+              flag_pulse &= 0xFFFE; // false
             }
             else{
-              waterFlow = waterFlow;
-              flag_flujo = flag_flujo; 
+              quantity_pulse[0] = quantity_pulse[0];
+              flag_pulse = flag_pulse; // nothing else
             }
-            if(count_pulse >= 18000){
-              caudalimetro();
-              count_pulse = 0;
-            }
+            break;
           }
           default : {
-            
+            status_entrada_0 = 0;
+            break;
+          }  
+        }
+      } // entrada 1
+      case 1 : {
+        switch((int)inputs[1][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_1 = digitalRead(pin_entrada_logica_1);
+            break;
+          }
+          case 2 : {
+            status_entrada_1 = (int)((double)analogRead(pin_entrada_logica_1))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_1 = (int)((double)analogRead(pin_entrada_logica_1))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_1 = ( analogRead(pin_entrada_logica_1)*0.1 + status_entrada_1*(1-0.1) );
+            if( (status_entrada_1 <= 100 ) && (flag_pulse&0x0002 == 0x0000) ){
+              quantity_pulse[1] += 1;
+              flag_pulse |= 0x0002; // true
+            }
+            else if(status_entrada_1 >=700){
+              quantity_pulse[1] = quantity_pulse[1];
+              flag_pulse &= 0xFFFD; // false
+            }
+            else{
+              quantity_pulse[1] = quantity_pulse[1];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_1 = 0;
+            break;
+          }  
+        }
+      }
+      case 2 : { // entrada 2
+        switch((int)inputs[2][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_2 = digitalRead(pin_entrada_logica_2);
+            break;
+          }
+          case 2 : {
+            status_entrada_2 = (int)((double)analogRead(pin_entrada_logica_2))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_2 = (int)((double)analogRead(pin_entrada_logica_2))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_2 = ( analogRead(pin_entrada_logica_2)*0.1 + status_entrada_2*(1-0.1) );
+            if( (status_entrada_2 <= 100 ) && (flag_pulse&0x0004 == 0x0000) ){
+              quantity_pulse[2] += 1;
+              flag_pulse |= 0x0004; // true
+            }
+            else if(status_entrada_2 >=700){
+              quantity_pulse[2] = quantity_pulse[2];
+              flag_pulse &= 0xFFFB; // false
+            }
+            else{
+              quantity_pulse[2] = quantity_pulse[2];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_2 = 0;
+            break;
+          }  
+        }
+      }
+      case 3 : { // entrada 3
+        switch((int)inputs[3][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_3 = digitalRead(pin_entrada_logica_3);
+            break;
+          }
+          case 2 : {
+            status_entrada_3 = (int)((double)analogRead(pin_entrada_logica_3))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_3 = (int)((double)analogRead(pin_entrada_logica_3))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_3 = ( analogRead(pin_entrada_logica_3)*0.1 + status_entrada_3*(1-0.1) );
+            if( (status_entrada_3 <= 100 ) && (flag_pulse&0x0008 == 0x0000) ){
+              quantity_pulse[3] += 1;
+              flag_pulse |= 0x0008; // true
+            }
+            else if(status_entrada_3 >=700){
+              quantity_pulse[3] = quantity_pulse[3];
+              flag_pulse &= 0xFFF7; // false
+            }
+            else{
+              quantity_pulse[3] = quantity_pulse[3];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_3 = 0;
+            break;
+          }  
+        }
+      }
+      case 4 : { // entrada 4
+        switch((int)inputs[4][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_4 = digitalRead(pin_entrada_logica_4);
+            break;
+          }
+          case 2 : {
+            status_entrada_4 = (int)((double)analogRead(pin_entrada_logica_4))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_4 = (int)((double)analogRead(pin_entrada_logica_4))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_4 = ( analogRead(pin_entrada_logica_4)*0.1 + status_entrada_4*(1-0.1) );
+            if( (status_entrada_4 <= 100 ) && (flag_pulse&0x0010 == 0x0000) ){
+              quantity_pulse[4] += 1;
+              flag_pulse |= 0x0010; // true
+            }
+            else if(status_entrada_4 >=700){
+              quantity_pulse[4] = quantity_pulse[4];
+              flag_pulse &= 0xFFEF; // false
+            }
+            else{
+              quantity_pulse[4] = quantity_pulse[4];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_4 = 0;
+            break;
+          }  
+        }
+      }
+      case 5 : { // entrada 5
+        switch((int)inputs[5][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_5 = digitalRead(pin_entrada_analoga_0);
+            break;
+          }
+          case 2 : {
+            status_entrada_5 = (int)((double)analogRead(pin_entrada_analoga_0))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_5 = (int)((double)analogRead(pin_entrada_analoga_0))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_5 = ( analogRead(pin_entrada_analoga_0)*0.1 + status_entrada_5*(1-0.1) );
+            if( (status_entrada_5 <= 100 ) && (flag_pulse&0x0020 == 0x0000) ){
+              quantity_pulse[5] += 1;
+              flag_pulse |= 0x0020; // true
+            }
+            else if(status_entrada_5 >=700){
+              quantity_pulse[5] = quantity_pulse[5];
+              flag_pulse &= 0xFFDF; // false
+            }
+            else{
+              quantity_pulse[5] = quantity_pulse[5];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_5 = 0;
+            break;
+          }  
+        }
+      }
+      case 6 : { // entrada 6
+        switch((int)inputs[6][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_6 = digitalRead(pin_entrada_analoga_1);
+            break;
+          }
+          case 2 : {
+            status_entrada_6 = (int)((double)analogRead(pin_entrada_analoga_1))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_6 = (int)((double)analogRead(pin_entrada_analoga_1))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_6 = ( analogRead(pin_entrada_analoga_1)*0.1 + status_entrada_6*(1-0.1) );
+            if( (status_entrada_6 <= 100 ) && (flag_pulse&0x0040 == 0x0000) ){
+              quantity_pulse[6] += 1;
+              flag_pulse |= 0x0040; // true
+            }
+            else if(status_entrada_6 >=700){
+              quantity_pulse[6] = quantity_pulse[6];
+              flag_pulse &= 0xFFBF; // false
+            }
+            else{
+              quantity_pulse[6] = quantity_pulse[6];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_6 = 0;
+            break;
+          }  
+        }
+      }
+      case 7 : { // entrada 7
+        switch((int)inputs[7][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_7 = digitalRead(pin_entrada_analoga_2);
+            break;
+          }
+          case 2 : {
+            status_entrada_7 = (int)((double)analogRead(pin_entrada_analoga_2))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_7 = (int)((double)analogRead(pin_entrada_analoga_2))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_7 = ( analogRead(pin_entrada_analoga_2)*0.1 + status_entrada_7*(1-0.1) );
+            if( (status_entrada_7 <= 100 ) && (flag_pulse&0x0080 == 0x0000) ){
+              quantity_pulse[7] += 1;
+              flag_pulse |= 0x0080; // true
+            }
+            else if(status_entrada_7 >=700){
+              quantity_pulse[7] = quantity_pulse[7];
+              flag_pulse &= 0xFF7F; // false
+            }
+            else{
+              quantity_pulse[7] = quantity_pulse[7];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_7 = 0;
+            break;
+          }  
+        }
+      }
+      case 8 : { // entrada 8
+        switch((int)inputs[8][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_8 = digitalRead(pin_entrada_analoga_3);
+            break;
+          }
+          case 2 : {
+            status_entrada_8 = (int)((double)analogRead(pin_entrada_analoga_3))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_8 = (int)((double)analogRead(pin_entrada_analoga_3))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_8 = ( analogRead(pin_entrada_analoga_3)*0.1 + status_entrada_8*(1-0.1) );
+            if( (status_entrada_8 <= 100 ) && (flag_pulse&0x0100 == 0x0000) ){
+              quantity_pulse[8] += 1;
+              flag_pulse |= 0x0100; // true
+            }
+            else if(status_entrada_8 >=700){
+              quantity_pulse[8] = quantity_pulse[8];
+              flag_pulse &= 0xFEFF; // false
+            }
+            else{
+              quantity_pulse[8] = quantity_pulse[8];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_8 = 0;
+            break;
+          }  
+        }
+      }
+      case 9 : { // entrada 9
+        switch((int)inputs[9][2]){ // in case mode selected
+          case 1 : {
+            status_entrada_9 = digitalRead(pin_entrada_analoga_4);
+            break;
+          }
+          case 2 : {
+            status_entrada_9 = (int)((double)analogRead(pin_entrada_analoga_4))*0.0978; // 0 - 100 percent
+            break;
+          }
+          case 3 : {
+            status_entrada_9 = (int)((double)analogRead(pin_entrada_analoga_4))*0.0978;
+            break;
+          }
+          case 4 : {
+            status_entrada_9 = ( analogRead(pin_entrada_analoga_4)*0.1 + status_entrada_9*(1-0.1) );
+            if( (status_entrada_9 <= 100 ) && (flag_pulse&0x0200 == 0x0000) ){
+              quantity_pulse[9] += 1;
+              flag_pulse |= 0x0200; // true
+            }
+            else if(status_entrada_9 >=700){
+              quantity_pulse[9] = quantity_pulse[9];
+              flag_pulse &= 0xFDFF; // false
+            }
+            else{
+              quantity_pulse[9] = quantity_pulse[9];
+              flag_pulse = flag_pulse; // nothing else
+            }
+            break;
+          }
+          default : {
+            status_entrada_9 = 0;
+            break;
           }  
         }
       }
       default : {
-        
+        break;
       }
-        status_entrada_0 = digitalRead(pin_entrada_logica_0);
-        status_entrada_1 = digitalRead(pin_entrada_logica_1);
-        status_entrada_2 = digitalRead(pin_entrada_logica_2);
-        status_entrada_3 = digitalRead(pin_entrada_logica_3);
-        status_entrada_4 = digitalRead(pin_entrada_logica_4);
-        status_entrada_5 = digitalRead(pin_entrada_analoga_0);
-        status_entrada_6 = digitalRead(pin_entrada_analoga_1);
-        status_entrada_7 = digitalRead(pin_entrada_analoga_2);
-        status_entrada_8 = digitalRead(pin_entrada_analoga_3);
-        status_entrada_9 = digitalRead(pin_entrada_analoga_4);
     }
+  }
+  if(count_pulse >= 18000){ // actualizar los valores del efecto hall cada 3 min
+    update_hall();
+    count_pulse = 0;
+  }
+  if(count_pulse%100 == 0){ // se escriben las salidas cada 1 segundo
+    system_output_write();
   }
   sei();
 }
 
-void caudalimetro(){
-    cli();
-    caudal = (waterFlow*10.0/18.0);
-    waterFlow = 0;
-    sei();
+void update_hall(){
+  cli();
+  valor_0 = ((int)inputs[0][2] == 4)?( (quantity_pulse[0])*(inputs[0][3]) ):(valor_0);
+  valor_1 = ((int)inputs[1][2] == 4)?( (quantity_pulse[1])*(inputs[1][3]) ):(valor_1);
+  valor_2 = ((int)inputs[2][2] == 4)?( (quantity_pulse[2])*(inputs[2][3]) ):(valor_2);
+  valor_3 = ((int)inputs[3][2] == 4)?( (quantity_pulse[3])*(inputs[3][3]) ):(valor_3);
+  valor_4 = ((int)inputs[4][2] == 4)?( (quantity_pulse[4])*(inputs[4][3]) ):(valor_4);
+  valor_5 = ((int)inputs[5][2] == 4)?( (quantity_pulse[5])*(inputs[5][3]) ):(valor_5);
+  valor_6 = ((int)inputs[6][2] == 4)?( (quantity_pulse[6])*(inputs[6][3]) ):(valor_6);
+  valor_7 = ((int)inputs[7][2] == 4)?( (quantity_pulse[7])*(inputs[7][3]) ):(valor_7);
+  valor_8 = ((int)inputs[8][2] == 4)?( (quantity_pulse[8])*(inputs[8][3]) ):(valor_8);
+  valor_9 = ((int)inputs[9][2] == 4)?( (quantity_pulse[9])*(inputs[9][3]) ):(valor_9);
+  for(int i=0; i<10; i++){
+    quantity_pulse[i] = 0;
+  }
+  sei();
 }

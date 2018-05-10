@@ -51,6 +51,9 @@ int system_inputs_read(){
   return 0;
 }
 
+/**
+ * @brief : actualización de las salidas en funcion de las entradas.
+ */
 int system_outputs_update(){
   status_salida_0 = 1;
   status_salida_1 = 1;
@@ -131,6 +134,55 @@ int system_outputs_update(){
       }  
     }  
   }
+
+  /**
+   * @brief : una vez obtenida la lógica de entradas, es necesario cruzar la info con la nube
+   */
+  status_salida_0 &= (remote_output_0 == 1)?(0):(1); 
+  status_salida_1 &= (remote_output_1 == 1)?(0):(1); 
+  status_salida_2 &= (remote_output_2 == 1)?(0):(1); 
+  status_salida_3 &= (remote_output_3 == 1)?(0):(1);
+  status_salida_4 &= (remote_output_4 == 1)?(0):(1);
+  status_salida_5 &= (remote_output_5 == 1)?(0):(1); 
+  status_salida_6 &= (remote_output_6 == 1)?(0):(1);
+  status_salida_7 &= (remote_output_7 == 1)?(0):(1);
+  status_salida_8 &= (remote_output_8 == 1)?(0):(1);
+  status_salida_9 &= (remote_output_9 == 1)?(0):(1);
+
+  /**
+   * @brief : lógica de relé de nivel y salida de bomba.
+   *          -Si hay agua en el pozo profundo el relé de nivel cierra el contacto NO.
+   *          -Si la entrada esta en bajo, entonces hay agua.
+   *          -Si hay agua, se mantiene la lógica de entradas.
+   *          -Sino, se setea la salida en LOW
+   *          
+   *          Esto fija la conexion de un relé de nivel en la entrada 0 y fija la conexion
+   *          de una bomba en la salida 0.
+   *          
+   *          Cabe destacar que la lógica de entradas para la salida 0 es la misma que
+   *          para el variador de frecuencia.
+   */
+  status_salida_0 = (status_entrada_0 == 0)?(status_salida_0):(1);
+
+  /**
+   * @brief : verificar el horario punta.
+   *          -lógica del horario punta.
+   *          -Si el horario punta está activo, entonces se debe apagar la bomba.
+   *          -Si el horario punta esta inactivo, entones la bomba puede encender.
+   */
+  if(peakTime_enable == 1){
+    if(hora >= 17 && hora <= 23){
+      hora_punta = true;  
+    }
+    else{
+      hora_punta = false;  
+    }  
+  }
+  else{
+    hora_punta = false;  
+  }
+  status_salida_0 = (hora_punta == true)?(1):(status_salida_0);
+  
   return 0;
 }
 
@@ -193,7 +245,20 @@ int system_output_write(){
     digitalWrite(pin_salida_9, HIGH);
   }
   else{
-    digitalWrite(pin_salida_9, LOW);  
+    digitalWrite(pin_salida_9, LOW);
   }
   return 0;
+}
+
+void run_inverter(){
+  var_frec.writeSingleRegister(REG_RUN, START_INV); // dar partida
+}
+
+void stop_inverter(){
+  var_frec.writeSingleRegister(REG_RUN, STOP_INV); // parar
+}
+
+void set_freq_inverter(double freq){
+  int freq__ = (int)freq*100.0;
+  var_frec.writeSingleRegister(REG_RUN_FREQ, freq__); // setear frecuencia del variador
 }
