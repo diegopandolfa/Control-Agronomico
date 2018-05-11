@@ -234,6 +234,8 @@ volatile int sensor_value = 0;
  */
 LiquidCrystal_I2C lcd(0x3F,20,4);
 #define TIME_MSG  2000 // 2 segundos
+String str_lcd[20] = {"","","","","","","","","","","","","","","","","","","",""};
+volatile int iterador_lcd = 0;
 
 /**
  * @brief : flags de status
@@ -351,6 +353,7 @@ void setup() {
   peakTime_config(); // se habilita/dehabilita el horario punta
   print_config_ok_msg();
   delay(TIME_MSG);
+  lcd.clear();
 
   /**
    * @brief : cuarto, habilitar interrupciones y modulos externos.
@@ -366,6 +369,14 @@ void setup() {
 
 void loop() {
   /**
+   * se obtiene la hora del RTC
+   */
+  current_time = Teensy3Clock.get();
+  Serial.println(current_time);
+  hora = (((current_time%31536000)%2592000)%86400)/3600;
+  minuto = ((((current_time%31536000)%2592000)%86400)%3600)/60;
+  segundo = ((((current_time%31536000)%2592000)%86400)%3600)%60;
+  /**
    * @brief : primero se deben leer las señales remotas de control desde la nube.
    */
   ubidots_requets_for_control();
@@ -373,19 +384,19 @@ void loop() {
    * @brief : luego se deben leer las entradas locales que tienen mayor prioridad por sobre las remotas
    *          por lo que eventualmente podrian sobreesccribir algun valor anterior.
    */
-  system_inputs_read();
+//  system_inputs_read();
   /**
    * @brief : en tercer lugar se deben definir las salidas en funcion de las entradas.
    */
-  system_outputs_update();
+//  system_outputs_update();
   /**
    * @brief : en cuarto lugar se debe actuar sobre las salidas.
    */   
-  system_output_write();
+//  system_output_write();
   /**
    * @brief : en quinto lugar se debe notificar via display las variables de interes.
    */
-  print_variables();
+//  print_variables();
   /**
    * @brief : en sexto lugar se debe notificar via 3G hacia la nube el estado de todas las entradas y salidas.
    */
@@ -771,7 +782,16 @@ void measure(){   //measure the quantity of square wave
     count_pulse = 0;
   }
   if(count_pulse%100 == 0){ // se escriben las salidas cada 1 segundo
+    system_inputs_read();
+    system_outputs_update();
     system_output_write();
+    if(iterador_lcd < 16){
+      iterador_lcd++;  
+    }
+    else{
+      iterador_lcd = 0;  
+    }
+    print_variables();
   }
   sei();
 }
