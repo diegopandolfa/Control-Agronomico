@@ -189,11 +189,21 @@ int system_outputs_update(){
 int system_output_write(){
   if(status_salida_0 == 0){
     digitalWrite(pin_salida_0, HIGH);
-    run_inverter();
+    if(bomba_on == false){
+      run_inverter();
+    }
+    else{
+      ;
+    }
   }
   else{
     digitalWrite(pin_salida_0, LOW); 
-    stop_inverter(); 
+    if(bomba_on == true){
+      stop_inverter(); 
+    }
+    else{
+      ;  
+    }
   }
   if(status_salida_1 == 0){
     digitalWrite(pin_salida_1, HIGH);
@@ -254,10 +264,12 @@ int system_output_write(){
 
 void run_inverter(){
   var_frec.writeSingleRegister(REG_RUN, START_INV); // dar partida
+  bomba_on = true;
 }
 
 void stop_inverter(){
   var_frec.writeSingleRegister(REG_RUN, STOP_INV); // parar
+  bomba_on = false;
 }
 
 void set_freq_inverter(double freq){

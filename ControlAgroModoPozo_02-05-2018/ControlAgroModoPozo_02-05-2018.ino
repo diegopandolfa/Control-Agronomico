@@ -53,7 +53,7 @@
  * @brief : cabecera para el manejo de interrupciones por timer
  */
 #include <TimerOne.h>
-
+//#include <TimerThree.h>
 /**
  * @brief : cabecera para el manejo del EIA-RS485 con el protocolo Modbus
  */
@@ -293,6 +293,11 @@ char data_in_ = 0;
 char *token = NULL;
 
 /**
+ * @brief: timer del xbee
+ */
+Metro time_of_xbee = Metro(1000); // 1 segundo
+bool flag_rtc_sync = false;
+/**
  * @brief : inicializacion del sistema.
  */
 void setup() {
@@ -347,7 +352,12 @@ void setup() {
   print_stay_for_3G_connection();
   stay_for_3G_connection(); // se espera por conexion 3G
   print_rtc_config_init();
-  rtc_config(); // se configura el RTC
+  if(msio == 0){
+    rtc_config(); // se configura el RTC
+  }
+  else {
+    ; 
+  }
   print_rtc_config_ok_msg();
   delay(TIME_MSG);
   peakTime_config(); // se habilita/dehabilita el horario punta
@@ -362,8 +372,10 @@ void setup() {
   var_frec.begin(address_var_frec, RS485);
 
   cli();
-  Timer1.initialize(10*1000); // 10 ms
+  Timer1.initialize(100*1000); // 100 ms
   Timer1.attachInterrupt(measure);
+  //Timer3.initialize(4000*1000); // 1000 ms
+  //Timer3.attachInterrupt(print_variables);
   sei();
 }
 
@@ -372,14 +384,34 @@ void loop() {
    * se obtiene la hora del RTC
    */
   current_time = Teensy3Clock.get();
-  Serial.println(current_time);
+  //DEBUG.println(current_time);
   hora = (((current_time%31536000)%2592000)%86400)/3600;
   minuto = ((((current_time%31536000)%2592000)%86400)%3600)/60;
   segundo = ((((current_time%31536000)%2592000)%86400)%3600)%60;
   /**
    * @brief : primero se deben leer las señales remotas de control desde la nube.
    */
-  ubidots_requets_for_control();
+  if(msio == 0){
+    ubidots_requets_for_control();
+    ubidots_request_for_other_devices();
+    ubidots_post_request();
+    ubidots_post_for_other_devices();
+  }
+  else{
+    String tmp__ = "";
+    tmp__ += device_id;
+    if(XBEE.available()>0){
+      if( ((char)XBEE.read()) == ((char) tmp__.charAt(0)) ){
+        if(flag_rtc_sync == false){
+          rtc_config_other_devices();  
+        }
+        else {
+          ubidots_request_for_control_slave();
+          ubidots_post_request_slave();
+        }
+      }  
+    }  
+  }
   /**
    * @brief : luego se deben leer las entradas locales que tienen mayor prioridad por sobre las remotas
    *          por lo que eventualmente podrian sobreesccribir algun valor anterior.
@@ -400,7 +432,16 @@ void loop() {
   /**
    * @brief : en sexto lugar se debe notificar via 3G hacia la nube el estado de todas las entradas y salidas.
    */
-  ubidots_post_request();
+//   ubidots_post_request();
+/*
+  system_inputs_read();
+  system_outputs_update();
+  system_output_write();
+*/
+  /**
+   * @brief : datalogg local en SD Card
+   */
+  system_datalogg();
 }
 
 
@@ -428,7 +469,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_0 = ( analogRead(pin_entrada_logica_0)*0.1 + status_entrada_0*(1-0.1) );
-            if( (status_entrada_0 <= 100 ) && (flag_pulse&0x0001 == 0x0000) ){
+            if( (status_entrada_0 <= 100 ) && ( (flag_pulse&0x0001) == 0x0000) ){
               quantity_pulse[0] += 1;
               flag_pulse |= 0x0001; // true
             }
@@ -464,7 +505,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_1 = ( analogRead(pin_entrada_logica_1)*0.1 + status_entrada_1*(1-0.1) );
-            if( (status_entrada_1 <= 100 ) && (flag_pulse&0x0002 == 0x0000) ){
+            if( (status_entrada_1 <= 100 ) && ( (flag_pulse&0x0002) == 0x0000) ){
               quantity_pulse[1] += 1;
               flag_pulse |= 0x0002; // true
             }
@@ -500,7 +541,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_2 = ( analogRead(pin_entrada_logica_2)*0.1 + status_entrada_2*(1-0.1) );
-            if( (status_entrada_2 <= 100 ) && (flag_pulse&0x0004 == 0x0000) ){
+            if( (status_entrada_2 <= 100 ) && ( (flag_pulse&0x0004) == 0x0000) ){
               quantity_pulse[2] += 1;
               flag_pulse |= 0x0004; // true
             }
@@ -536,7 +577,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_3 = ( analogRead(pin_entrada_logica_3)*0.1 + status_entrada_3*(1-0.1) );
-            if( (status_entrada_3 <= 100 ) && (flag_pulse&0x0008 == 0x0000) ){
+            if( (status_entrada_3 <= 100 ) && ( (flag_pulse&0x0008) == 0x0000) ){
               quantity_pulse[3] += 1;
               flag_pulse |= 0x0008; // true
             }
@@ -571,8 +612,8 @@ void measure(){   //measure the quantity of square wave
             break;
           }
           case 4 : {
-            status_entrada_4 = ( analogRead(pin_entrada_logica_4)*0.1 + status_entrada_4*(1-0.1) );
-            if( (status_entrada_4 <= 100 ) && (flag_pulse&0x0010 == 0x0000) ){
+            status_entrada_4 = ( analogRead(pin_entrada_logica_4)*0.25 + status_entrada_4*(1-0.25) );
+            if( (status_entrada_4 <= 100 ) && ( (flag_pulse&0x0010) == 0x0000) ){
               quantity_pulse[4] += 1;
               flag_pulse |= 0x0010; // true
             }
@@ -608,7 +649,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_5 = ( analogRead(pin_entrada_analoga_0)*0.1 + status_entrada_5*(1-0.1) );
-            if( (status_entrada_5 <= 100 ) && (flag_pulse&0x0020 == 0x0000) ){
+            if( (status_entrada_5 <= 100 ) && ( (flag_pulse&0x0020) == 0x0000) ){
               quantity_pulse[5] += 1;
               flag_pulse |= 0x0020; // true
             }
@@ -644,7 +685,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_6 = ( analogRead(pin_entrada_analoga_1)*0.1 + status_entrada_6*(1-0.1) );
-            if( (status_entrada_6 <= 100 ) && (flag_pulse&0x0040 == 0x0000) ){
+            if( (status_entrada_6 <= 100 ) && ( (flag_pulse&0x0040) == 0x0000) ){
               quantity_pulse[6] += 1;
               flag_pulse |= 0x0040; // true
             }
@@ -680,7 +721,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_7 = ( analogRead(pin_entrada_analoga_2)*0.1 + status_entrada_7*(1-0.1) );
-            if( (status_entrada_7 <= 100 ) && (flag_pulse&0x0080 == 0x0000) ){
+            if( (status_entrada_7 <= 100 ) && ( (flag_pulse&0x0080) == 0x0000) ){
               quantity_pulse[7] += 1;
               flag_pulse |= 0x0080; // true
             }
@@ -716,7 +757,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_8 = ( analogRead(pin_entrada_analoga_3)*0.1 + status_entrada_8*(1-0.1) );
-            if( (status_entrada_8 <= 100 ) && (flag_pulse&0x0100 == 0x0000) ){
+            if( (status_entrada_8 <= 100 ) && ( (flag_pulse&0x0100) == 0x0000) ){
               quantity_pulse[8] += 1;
               flag_pulse |= 0x0100; // true
             }
@@ -752,7 +793,7 @@ void measure(){   //measure the quantity of square wave
           }
           case 4 : {
             status_entrada_9 = ( analogRead(pin_entrada_analoga_4)*0.1 + status_entrada_9*(1-0.1) );
-            if( (status_entrada_9 <= 100 ) && (flag_pulse&0x0200 == 0x0000) ){
+            if( (status_entrada_9 <= 100 ) && ( (flag_pulse&0x0200) == 0x0000) ){
               quantity_pulse[9] += 1;
               flag_pulse |= 0x0200; // true
             }
@@ -777,27 +818,20 @@ void measure(){   //measure the quantity of square wave
       }
     }
   }
-  if(count_pulse >= 18000){ // actualizar los valores del efecto hall cada 3 min
+  if(count_pulse >= 1800){ // actualizar los valores del efecto hall cada 3 min
     update_hall();
     count_pulse = 0;
   }
-  if(count_pulse%100 == 0){ // se escriben las salidas cada 1 segundo
+  if( (count_pulse%20) == 0){ // se escriben las salidas cada 2 segundos
     system_inputs_read();
     system_outputs_update();
     system_output_write();
-    if(iterador_lcd < 16){
-      iterador_lcd++;  
-    }
-    else{
-      iterador_lcd = 0;  
-    }
     print_variables();
   }
   sei();
 }
 
 void update_hall(){
-  cli();
   valor_0 = ((int)inputs[0][2] == 4)?( (quantity_pulse[0])*(inputs[0][3]) ):(valor_0);
   valor_1 = ((int)inputs[1][2] == 4)?( (quantity_pulse[1])*(inputs[1][3]) ):(valor_1);
   valor_2 = ((int)inputs[2][2] == 4)?( (quantity_pulse[2])*(inputs[2][3]) ):(valor_2);
@@ -811,5 +845,4 @@ void update_hall(){
   for(int i=0; i<10; i++){
     quantity_pulse[i] = 0;
   }
-  sei();
 }

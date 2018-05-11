@@ -16,7 +16,7 @@ void print_welcome_msg(){
   lcd.setCursor(0,1);
   lcd.print("IZARO PRINCIPAL");
   lcd.setCursor(0,2);
-  lcd.print("POZO 3");
+  lcd.print("CONTROL DE POZO");
 }
 
 void print_error_sd_msg(){
@@ -126,6 +126,12 @@ void print_rtc_config_init(){
 }
 
 void print_variables(){
+  if(iterador_lcd < 16){
+    iterador_lcd++;  
+  }
+  else{
+    iterador_lcd = 0;  
+  }
   lcd.clear();
   str_lcd[0] = "IN_0 :";
   str_lcd[0] += valor_0;
@@ -148,25 +154,25 @@ void print_variables(){
   str_lcd[9] = "IN_9 :";
   str_lcd[9] += valor_9;
   str_lcd[10] = "OUT_0:";
-  str_lcd[10] += status_salida_0;
+  str_lcd[10] += !status_salida_0;
   str_lcd[11] = "OUT_1:";
-  str_lcd[11] += status_salida_1;
+  str_lcd[11] += !status_salida_1;
   str_lcd[12] = "OUT_2:";
-  str_lcd[12] += status_salida_2;
+  str_lcd[12] += !status_salida_2;
   str_lcd[13] = "OUT_3:";
-  str_lcd[13] += status_salida_3;
+  str_lcd[13] += !status_salida_3;
   str_lcd[14] = "OUT_4:";
-  str_lcd[14] += status_salida_4;
+  str_lcd[14] += !status_salida_4;
   str_lcd[15] = "OUT_5:";
-  str_lcd[15] += status_salida_5;
+  str_lcd[15] += !status_salida_5;
   str_lcd[16] = "OUT_6:";
-  str_lcd[16] += status_salida_6;
+  str_lcd[16] += !status_salida_6;
   str_lcd[17] = "OUT_7:";
-  str_lcd[17] += status_salida_7;
+  str_lcd[17] += !status_salida_7;
   str_lcd[18] = "OUT_8:";
-  str_lcd[18] += status_salida_8;
+  str_lcd[18] += !status_salida_8;
   str_lcd[19] = "OUT_9:";
-  str_lcd[19] += status_salida_9;
+  str_lcd[19] += !status_salida_9;
  
   lcd.setCursor(0,0);
   lcd.print(str_lcd[iterador_lcd]);
@@ -202,46 +208,17 @@ void print_variables(){
   }
   lcd.setCursor(13,1);
   lcd.print(tmp);
-  /*
-  str_lcd += (status_salida_0 == 0)?("ON "):("OFF");
-  str_lcd += " @";
-  str_lcd += freq_prev;
-  lcd.setCursor(8,0);
-  lcd.print(str_lcd);
-  lcd.setCursor(8,1);
-  str_lcd = "";
-  str_lcd += caudal;
-  lcd.print(str_lcd);
-  lcd.setCursor(8,2);
-  str_lcd = (request_http_ok == true)?("OK  "):("FAIL");
-  str_lcd += "  @";
-  if(hora < 10){
-    str_lcd += "0";
-    str_lcd += hora; 
-  }
-  else {
-    str_lcd += hora;  
-  }
-  str_lcd += ":";
-  if(minuto < 10){
-    str_lcd += "0";
-    str_lcd += minuto; 
-  }
-  else {
-    str_lcd += minuto;  
-  }
-  lcd.print(str_lcd);
-  lcd.setCursor(8,3);
-  str_lcd = "";
-  if(flag_func){
-    str_lcd += (enable_var_frec == true)?("ALTO       *"):("BAJO       *");
-  }
-  else{
-    str_lcd += (enable_var_frec == true)?("ALTO        "):("BAJO        ");
-  }
-  flag_func = !flag_func;
-  lcd.print(str_lcd);
-  */
+
+  tmp = "";
+  tmp += "H.P:";
+  tmp += (hora_punta == true)?("ENA"):("DIS");
+  lcd.setCursor(13,2);
+  lcd.print(tmp);
+
+  tmp = "POZO:";
+  tmp += (valor_0 == 0)?("Hi"):("Lo");
+  lcd.setCursor(13,3);
+  lcd.print(tmp);
 }
 
 void print_system_config_ok_msg(){

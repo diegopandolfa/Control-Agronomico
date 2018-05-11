@@ -177,21 +177,27 @@ int load_sd_card_config(){
     }
     // close the file:
     myFile.close();
-    for(int i=1; i<count_line; i++){
+    for(int i=0; i<count_line; i++){
       token = (char *)lines_system[i].c_str();
       token = strtok(token, ",");
       int count_cols = 0;
       while(token != NULL){
         if(count_cols == 0){
           device_id = atoi(token);
+          DEBUG.print("device_id:\t");
+          DEBUG.println(device_id);
           count_cols++;
         }
         else if(count_cols == 1){
           msio = atoi(token);
+          DEBUG.print("msio:\t");
+          DEBUG.println(msio);
           count_cols++;
         }
         else if(count_cols == 2){
           peakTime_enable = atoi(token);
+          DEBUG.print("peakTime:\t");
+          DEBUG.println(peakTime_enable);
           count_cols++;
         }
         else{
@@ -202,5 +208,78 @@ int load_sd_card_config(){
     }
   }
   //------------- end system ----------------//
-  
+  return 0;
+}
+
+int system_datalogg(){
+  if(time_of_log.check() == 1){
+    dataString = "";
+    dataString += current_time;
+    dataString += ",";
+    dataString += valor_0;
+    dataString += ",";
+    dataString += valor_1;
+    dataString += ",";
+    dataString += valor_2;
+    dataString += ",";
+    dataString += valor_3;
+    dataString += ",";
+    dataString += valor_4;
+    dataString += ",";
+    dataString += valor_5;
+    dataString += ",";
+    dataString += valor_6;
+    dataString += ",";
+    dataString += valor_7;
+    dataString += ",";
+    dataString += valor_8;
+    dataString += ",";
+    dataString += valor_9;
+    dataString += ",";
+    dataString += status_salida_0;
+    dataString += ",";
+    dataString += status_salida_1;
+    dataString += ",";
+    dataString += status_salida_2;
+    dataString += ",";
+    dataString += status_salida_3;
+    dataString += ",";
+    dataString += status_salida_4;
+    dataString += ",";
+    dataString += status_salida_5;
+    dataString += ",";
+    dataString += status_salida_6;
+    dataString += ",";
+    dataString += status_salida_7;
+    dataString += ",";
+    dataString += status_salida_8;
+    dataString += ",";
+    dataString += status_salida_9;
+    dataString += ",";
+    dataString += (status_salida_0 == 1)?("ON "):("OFF");
+    dataString += ",";
+    dataString += caudal;
+    dataString += ",";
+    dataString += freq;
+    dataString += ",";
+    dataString += (request_http_ok == true)?("OK  "):("FAIL");
+    dataString += ",";
+    dataString += (enable_var_frec == true)?("ALTO"):("BAJO");
+    dataString += '\n';
+    File dataFile = SD.open("datalog.txt", FILE_WRITE);
+    if (dataFile) {
+      dataFile.println(dataString);
+      dataFile.close();
+      // print to the serial port too:
+      DEBUG.println(dataString);
+    }  
+    // if the file isn't open, pop up an error:
+    else {
+      DEBUG.println("error opening datalog.txt");
+    }
+  }
+  else{
+    return 0;  
+  }
+  return 0;
 }
