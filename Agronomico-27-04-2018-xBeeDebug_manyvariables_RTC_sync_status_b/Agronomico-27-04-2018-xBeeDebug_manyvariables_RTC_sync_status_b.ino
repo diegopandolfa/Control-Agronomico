@@ -568,7 +568,7 @@ void loop()
             token = strtok(NULL, delim);
           }
           freq = atof(token);
-          if( (freq >=30) && (freq <= 55) ){
+          if( (freq >= 30) && (freq <= 55) ){
             int freq__ = freq*100;
             if( freq_prev != freq__){
               Serial1.print("registro : ");

@@ -189,9 +189,11 @@ int system_outputs_update(){
 int system_output_write(){
   if(status_salida_0 == 0){
     digitalWrite(pin_salida_0, HIGH);
+    run_inverter();
   }
   else{
-    digitalWrite(pin_salida_0, LOW);  
+    digitalWrite(pin_salida_0, LOW); 
+    stop_inverter(); 
   }
   if(status_salida_1 == 0){
     digitalWrite(pin_salida_1, HIGH);

@@ -193,7 +193,7 @@ volatile double valor_9 = 0.0;
 ModbusMaster var_frec;
 int address_var_frec = 0x01;
 double freq = 0;
-int freq_prev = 0;
+double freq_prev = 0;
 
 /**
  * @brief : declaracion de variables asociadas al sistema.
